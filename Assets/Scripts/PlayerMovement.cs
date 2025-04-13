@@ -51,11 +51,11 @@ public class PlayerMovement : MonoBehaviour
 
 		float currentSpeed = movementSpeed;
 
-		if (Input.GetKey(KeyCode.LeftShift))
+		if (Input.GetKey(KeyCode.LeftShift) && !isCrouched)
 		{
 			currentSpeed = sprintSpeed;
 		}
-		else if (Input.GetKey(KeyCode.LeftControl))
+		else if (isCrouched)
 		{
 			currentSpeed = crouchSpeed;
 		}
@@ -68,14 +68,19 @@ public class PlayerMovement : MonoBehaviour
 		if (Input.GetKeyDown(KeyCode.LeftControl))
 		{
 			isCrouched = true;
-			targetHeight = crouchHeight;
-			targetCamPos = new Vector3(playerCamera.localPosition.x, 0.5f, playerCamera.localPosition.z);
 		}
 		else if (Input.GetKeyUp(KeyCode.LeftControl))
 		{
-			isCrouched = false;
-			targetHeight = originalHeight;
-			targetCamPos = new Vector3(playerCamera.localPosition.x, 0.9f, playerCamera.localPosition.z);
+			// Raycast upwards to check if space is clear
+			float checkHeight = originalHeight - crouchHeight;
+			Vector3 rayOrigin = transform.position + Vector3.up * crouchHeight;
+			bool blocked = Physics.Raycast(rayOrigin, Vector3.up, checkHeight + 0.1f, ~LayerMask.GetMask("Player"));
+
+			if (!blocked)
+			{
+				isCrouched = false;
+			}
+
 		}
 	}
 
@@ -102,6 +107,23 @@ public class PlayerMovement : MonoBehaviour
 
 	void SmoothCrouchTransition()
 	{
+		if (!isCrouched)
+		{
+			float checkHeight = originalHeight - crouchHeight;
+			Vector3 rayOrigin = transform.position + Vector3.up * controller.height;
+			bool blocked = Physics.Raycast(rayOrigin, Vector3.up, checkHeight + 0.1f, ~LayerMask.GetMask("Player"));
+
+			if (blocked)
+			{
+				isCrouched = true;
+			}
+		}
+
+		targetHeight = isCrouched ? crouchHeight : originalHeight;
+		targetCamPos = isCrouched
+			? new Vector3(playerCamera.localPosition.x, 0.5f, playerCamera.localPosition.z)
+			: new Vector3(playerCamera.localPosition.x, 0.9f, playerCamera.localPosition.z);
+
 		controller.height = Mathf.Lerp(controller.height, targetHeight, Time.deltaTime * crouchTransitionSpeed);
 		playerCamera.localPosition = Vector3.Lerp(playerCamera.localPosition, targetCamPos, Time.deltaTime * crouchTransitionSpeed);
 	}
